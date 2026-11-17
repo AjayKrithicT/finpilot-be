@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
-import { ZodSchema, ZodError } from 'zod';
+import { type ZodTypeAny, ZodError } from 'zod';
 import { AppError } from '../utils/AppError';
 import { HTTP_STATUS } from '../constants/http.constants';
 import { ERROR_CODES } from '../constants/error.constants';
@@ -11,8 +11,12 @@ type RequestPart = 'body' | 'query' | 'params';
  * request (`body`, `query`, or `params`) against the provided Zod schema.
  * On failure it throws an AppError with VALIDATION_ERROR so errorHandler can
  * serialise field-level details uniformly.
+ *
+ * We accept `ZodTypeAny` (rather than `ZodSchema<T>`) so that ZodPipeline
+ * schemas (used for query-param coercion) are assignable without input-type
+ * conflicts.
  */
-export function validate<T>(schema: ZodSchema<T>, part: RequestPart = 'body') {
+export function validate(schema: ZodTypeAny, part: RequestPart = 'body') {
   return (req: Request, _res: Response, next: NextFunction): void => {
     const result = schema.safeParse(req[part]);
 
