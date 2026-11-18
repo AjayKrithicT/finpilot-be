@@ -1,6 +1,7 @@
 import {
   findPortfolioPositionsByCustomerId,
   findActiveAccountsByCustomerId,
+  findPortfolioPositionsPage,
 } from '../repositories/portfolio.repository';
 import { findActiveCustomerById } from '../repositories/customer.repository';
 import { AppError } from '../utils/AppError';
@@ -13,6 +14,8 @@ import type {
   AccountAllocationDto,
   AssetClassAllocationDto,
   PortfolioPositionDto,
+  PositionListParams,
+  PaginatedPositionsDto,
 } from '../types/portfolio.types';
 import type { AssetClass } from '../constants/domain.constants';
 
@@ -196,4 +199,47 @@ export async function getCustomerPortfolio(customerId: string): Promise<Portfoli
     allocation_by_asset_class: allocationByAssetClass,
     positions: positionDtos,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Paginated positions — GET /customers/:id/portfolio/positions
+// ---------------------------------------------------------------------------
+
+export async function getPortfolioPositionsPage(
+  customerId: string,
+  params: PositionListParams,
+): Promise<PaginatedPositionsDto> {
+  const customer = await findActiveCustomerById(customerId);
+  if (!customer) {
+    throw new AppError(
+      HTTP_STATUS.NOT_FOUND,
+      ERROR_CODES.CUSTOMER_NOT_FOUND,
+      `Customer ${customerId} not found`,
+    );
+  }
+
+  const { rows, pagination } = await findPortfolioPositionsPage({
+    customerId,
+    page: params.page,
+    limit: params.limit,
+    search: params.search,
+    asset_class: params.asset_class,
+  });
+
+  const data: PortfolioPositionDto[] = rows.map((p: PortfolioPositionRow) => ({
+    instrument_id: p.instrument_id,
+    symbol: p.symbol,
+    instrument_name: p.instrument_name,
+    asset_class: p.asset_class,
+    account_id: p.account_id,
+    quantity: Number(p.quantity),
+    avg_cost: Number(p.avg_cost),
+    last_price: Number(p.last_price),
+    cost_basis: Number(p.cost_basis),
+    market_value: Number(p.market_value),
+    unrealised_gain_loss: Number(p.unrealised_gain_loss),
+    unrealised_gain_loss_pct: Number(p.unrealised_gain_loss_pct),
+  }));
+
+  return { data, pagination };
 }

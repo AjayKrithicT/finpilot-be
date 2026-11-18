@@ -14,12 +14,15 @@ import {
   findExistingInstrumentIds,
   findExistingTransactionIds,
   persistImportBatch,
+  findRejectionsByBatchId,
+  findBatchById,
 } from '../repositories/import.repository';
 import type {
   RawCsvTxRow,
   ValidatedTxRow,
   ImportRejectionItemDto,
   ImportBatchResponseDto,
+  PaginatedRejectionsDto,
 } from '../types/import.types';
 import type { ImportRejectionCode } from '../constants/error.constants';
 
@@ -71,7 +74,6 @@ async function validateRows(
   const validRows: ValidatedTxRow[] = [];
   const rejections: ImportRejectionItemDto[] = [];
 
-  // Collect unique IDs/FKs for bulk DB lookups
   const allAccountIds = [...new Set(rawRows.map((r) => r.account_id).filter(Boolean))];
   const allInstrumentIds = [...new Set(rawRows.map((r) => r.instrument_id).filter(Boolean))];
   const allTransactionIds = rawRows.map((r) => r.transaction_id).filter(Boolean);
@@ -82,7 +84,6 @@ async function validateRows(
     findExistingTransactionIds(allTransactionIds),
   ]);
 
-  // Track transaction IDs seen within this CSV to catch intra-file duplicates
   const seenInFile = new Set<string>();
 
   function reject(
@@ -92,7 +93,7 @@ async function validateRows(
     reason: string,
   ): void {
     rejections.push({
-      row_number: rowIndex + 1, // 1-based
+      row_number: rowIndex + 1,
       record_identifier: row.transaction_id ?? '',
       error_code: code,
       error_reason: reason,
@@ -104,132 +105,69 @@ async function validateRows(
     const row = rawRows[i] as RawCsvTxRow;
     const txId = row.transaction_id?.trim() ?? '';
 
-    // --- 1. Duplicate transaction_id (intra-file or already in DB) ---
     if (!txId || seenInFile.has(txId) || existingTxIds.has(txId)) {
-      reject(
-        i,
-        row,
-        IMPORT_REJECTION_CODES.DUPLICATE_TRANSACTION_ID,
-        `Duplicate transaction_id: "${txId}"`,
-      );
+      reject(i, row, IMPORT_REJECTION_CODES.DUPLICATE_TRANSACTION_ID, `Duplicate transaction_id: "${txId}"`);
       continue;
     }
     seenInFile.add(txId);
 
-    // --- 2. Invalid account FK ---
     if (!existingAccountIds.has(row.account_id?.trim() ?? '')) {
-      reject(
-        i,
-        row,
-        IMPORT_REJECTION_CODES.INVALID_ACCOUNT_FK,
-        `account_id "${row.account_id}" does not exist or is inactive`,
-      );
+      reject(i, row, IMPORT_REJECTION_CODES.INVALID_ACCOUNT_FK, `account_id "${row.account_id}" does not exist or is inactive`);
       continue;
     }
 
-    // --- 3. Invalid instrument FK ---
     if (!existingInstrumentIds.has(row.instrument_id?.trim() ?? '')) {
-      reject(
-        i,
-        row,
-        IMPORT_REJECTION_CODES.INVALID_INSTRUMENT_FK,
-        `instrument_id "${row.instrument_id}" does not exist or is inactive`,
-      );
+      reject(i, row, IMPORT_REJECTION_CODES.INVALID_INSTRUMENT_FK, `instrument_id "${row.instrument_id}" does not exist or is inactive`);
       continue;
     }
 
-    // --- 4. Invalid enum values ---
     const txType = row.transaction_type?.trim().toUpperCase();
     const txStatus = row.status?.trim().toUpperCase();
 
     if (!(TRANSACTION_TYPES as readonly string[]).includes(txType)) {
-      reject(
-        i,
-        row,
-        IMPORT_REJECTION_CODES.INVALID_ENUM_VALUE,
-        `Invalid transaction_type: "${row.transaction_type}". Must be one of ${TRANSACTION_TYPES.join(', ')}`,
-      );
+      reject(i, row, IMPORT_REJECTION_CODES.INVALID_ENUM_VALUE, `Invalid transaction_type: "${row.transaction_type}". Must be one of ${TRANSACTION_TYPES.join(', ')}`);
       continue;
     }
 
     if (!(TRANSACTION_STATUSES as readonly string[]).includes(txStatus)) {
-      reject(
-        i,
-        row,
-        IMPORT_REJECTION_CODES.INVALID_ENUM_VALUE,
-        `Invalid status: "${row.status}". Must be one of ${TRANSACTION_STATUSES.join(', ')}`,
-      );
+      reject(i, row, IMPORT_REJECTION_CODES.INVALID_ENUM_VALUE, `Invalid status: "${row.status}". Must be one of ${TRANSACTION_STATUSES.join(', ')}`);
       continue;
     }
 
-    // --- 5. Future trade_date ---
     const tradeDate = row.trade_date?.trim() ?? '';
     if (!isValidIsoDate(tradeDate)) {
-      reject(
-        i,
-        row,
-        IMPORT_REJECTION_CODES.INVALID_ENUM_VALUE,
-        `Invalid trade_date: "${row.trade_date}". Must be YYYY-MM-DD`,
-      );
+      reject(i, row, IMPORT_REJECTION_CODES.INVALID_ENUM_VALUE, `Invalid trade_date: "${row.trade_date}". Must be YYYY-MM-DD`);
       continue;
     }
     if (isFutureDate(tradeDate)) {
-      reject(
-        i,
-        row,
-        IMPORT_REJECTION_CODES.FUTURE_TRADE_DATE,
-        `trade_date "${tradeDate}" is in the future`,
-      );
+      reject(i, row, IMPORT_REJECTION_CODES.FUTURE_TRADE_DATE, `trade_date "${tradeDate}" is in the future`);
       continue;
     }
 
-    // --- 6. Numeric parsing ---
     const quantity = parseFloat(row.quantity ?? '');
     const price = parseFloat(row.price ?? '');
     const amount = parseFloat(row.amount ?? '');
 
     if (isNaN(amount) || amount <= 0) {
-      reject(
-        i,
-        row,
-        IMPORT_REJECTION_CODES.NON_POSITIVE_AMOUNT,
-        `amount must be > 0, got "${row.amount}"`,
-      );
+      reject(i, row, IMPORT_REJECTION_CODES.NON_POSITIVE_AMOUNT, `amount must be > 0, got "${row.amount}"`);
       continue;
     }
 
     if (isNaN(quantity) || quantity < 0) {
-      reject(
-        i,
-        row,
-        IMPORT_REJECTION_CODES.NON_POSITIVE_AMOUNT,
-        `quantity must be >= 0, got "${row.quantity}"`,
-      );
+      reject(i, row, IMPORT_REJECTION_CODES.NON_POSITIVE_AMOUNT, `quantity must be >= 0, got "${row.quantity}"`);
       continue;
     }
 
     if (isNaN(price) || price < 0) {
-      reject(
-        i,
-        row,
-        IMPORT_REJECTION_CODES.NON_POSITIVE_AMOUNT,
-        `price must be >= 0, got "${row.price}"`,
-      );
+      reject(i, row, IMPORT_REJECTION_CODES.NON_POSITIVE_AMOUNT, `price must be >= 0, got "${row.price}"`);
       continue;
     }
 
-    // --- 7. BUY/SELL require quantity > 0 AND price > 0 ---
     if ((txType === 'BUY' || txType === 'SELL') && (quantity <= 0 || price <= 0)) {
-      reject(
-        i,
-        row,
-        IMPORT_REJECTION_CODES.INVALID_TRADE_TERMS,
-        `BUY/SELL rows require quantity > 0 and price > 0 (got quantity=${quantity}, price=${price})`,
-      );
+      reject(i, row, IMPORT_REJECTION_CODES.INVALID_TRADE_TERMS, `BUY/SELL rows require quantity > 0 and price > 0 (got quantity=${quantity}, price=${price})`);
       continue;
     }
 
-    // All checks passed
     validRows.push({
       transaction_id: txId,
       account_id: row.account_id.trim(),
@@ -247,14 +185,13 @@ async function validateRows(
 }
 
 // ---------------------------------------------------------------------------
-// Public entry point
+// Public: CSV import
 // ---------------------------------------------------------------------------
 export async function importTransactionsCsv(
   fileBuffer: Buffer,
   fileName: string,
   userId: string,
 ): Promise<ImportBatchResponseDto> {
-  // 1. SHA-256 deduplication
   const checksum = computeChecksum(fileBuffer);
   const existing = await findBatchByChecksum(CSV_IMPORT.ENTITY_TYPE_TRANSACTIONS, checksum);
   if (existing) {
@@ -265,7 +202,6 @@ export async function importTransactionsCsv(
     );
   }
 
-  // 2. Parse CSV
   let rawRows: RawCsvTxRow[];
   let headers: string[];
   try {
@@ -285,10 +221,8 @@ export async function importTransactionsCsv(
     );
   }
 
-  // 3. Header check
   validateHeaders(headers);
 
-  // 4. Row-level validation (bulk FK lookups + all 7 anomaly classes)
   const { validRows, rejections } = await validateRows(rawRows);
 
   const totalRows = rawRows.length;
@@ -296,7 +230,6 @@ export async function importTransactionsCsv(
   const rejectedRows = rejections.length;
   const status: 'COMPLETED' | 'FAILED' = 'COMPLETED';
 
-  // 5. Atomic persistence: BEGIN → batch row → valid txns → rejections → COMMIT
   const batchId = await persistImportBatch(
     { fileName, fileChecksum: checksum, totalRows, importedRows, rejectedRows, status, userId },
     validRows,
@@ -311,5 +244,36 @@ export async function importTransactionsCsv(
     rejected_rows: rejectedRows,
     status,
     rejections,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Public: paginated rejections — GET /admin/imports/transactions/:batchId/rejections
+// ---------------------------------------------------------------------------
+export async function getImportRejections(
+  batchId: string,
+  page: number,
+  limit: number,
+): Promise<PaginatedRejectionsDto> {
+  const batch = await findBatchById(batchId);
+  if (!batch) {
+    throw new AppError(
+      HTTP_STATUS.NOT_FOUND,
+      ERROR_CODES.INTERNAL_ERROR,
+      `Import batch ${batchId} not found`,
+    );
+  }
+
+  const { rows, pagination } = await findRejectionsByBatchId(batchId, page, limit);
+
+  return {
+    data: rows.map((r) => ({
+      row_number: r.row_number,
+      record_identifier: r.record_identifier,
+      error_code: r.error_code,
+      error_reason: r.error_reason,
+      raw_payload: r.raw_payload,
+    })),
+    pagination,
   };
 }

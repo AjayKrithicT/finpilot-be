@@ -1,7 +1,12 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { postImportTransactions } from '../controllers/adminImport.controller';
+import {
+  postImportTransactions,
+  getTransactionRejections,
+} from '../controllers/adminImport.controller';
 import { requireRole } from '../middleware/auth';
+import { validate } from '../middleware/validate';
+import { rejectionListQuerySchema } from '../validators/import.validator';
 import { CSV_IMPORT } from '../constants/domain.constants';
 
 const router = Router();
@@ -13,12 +18,19 @@ const upload = multer({
 });
 
 // POST /admin/imports/transactions
-// requireRole('ADMIN') is applied here in addition to authenticateJwt on the parent router
 router.post(
   '/transactions',
   requireRole('ADMIN'),
   upload.single('file'),
   postImportTransactions,
+);
+
+// GET /admin/imports/transactions/:batchId/rejections
+router.get(
+  '/transactions/:batchId/rejections',
+  requireRole('ADMIN'),
+  validate(rejectionListQuerySchema, 'query'),
+  getTransactionRejections,
 );
 
 export default router;

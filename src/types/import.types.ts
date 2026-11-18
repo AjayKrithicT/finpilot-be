@@ -1,4 +1,5 @@
 import type { ImportRejectionCode } from '../constants/error.constants';
+import type { PaginatedResponse } from './common.types';
 
 // ----- Raw parsed CSV row (all values are strings before validation) -----
 export interface RawCsvTxRow {
@@ -46,3 +47,15 @@ export interface ImportBatchResponseDto {
   status: 'COMPLETED' | 'FAILED';
   rejections: ImportRejectionItemDto[];
 }
+
+// ----- Paginated rejection row (from DB, raw_payload is already parsed JSON) -----
+export interface ImportRejectionRowDto {
+  row_number: number;
+  record_identifier: string;
+  error_code: string;
+  error_reason: string;
+  raw_payload: Record<string, unknown>;
+}
+
+// ----- API response for GET /admin/imports/transactions/:batchId/rejections -----
+export type PaginatedRejectionsDto = PaginatedResponse<ImportRejectionRowDto>;

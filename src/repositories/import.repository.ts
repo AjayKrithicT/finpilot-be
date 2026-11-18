@@ -1,6 +1,7 @@
 import type { PoolClient } from 'pg';
 import pool from '../config/db';
 import type { ValidatedTxRow, ImportRejectionItemDto } from '../types/import.types';
+import type { PaginationMeta } from '../types/common.types';
 import { CSV_IMPORT } from '../constants/domain.constants';
 
 // ---------------------------------------------------------------------------
@@ -161,4 +162,72 @@ export async function persistImportBatch(
   } finally {
     client.release();
   }
+}
+
+// ---------------------------------------------------------------------------
+// Paginated rejection rows — used by GET /admin/imports/transactions/:batchId/rejections
+// ---------------------------------------------------------------------------
+
+export interface RejectionRow {
+  row_number: number;
+  record_identifier: string;
+  error_code: string;
+  error_reason: string;
+  raw_payload: Record<string, unknown>;
+}
+
+export interface FindRejectionsPageResult {
+  rows: RejectionRow[];
+  pagination: PaginationMeta;
+}
+
+export async function findRejectionsByBatchId(
+  batchId: string,
+  page: number,
+  limit: number,
+): Promise<FindRejectionsPageResult> {
+  const offset = (page - 1) * limit;
+
+  const countResult = await pool.query<{ total: string }>(
+    `SELECT COUNT(*) AS total
+       FROM import_rejections
+      WHERE batch_id = $1
+        AND is_active = TRUE`,
+    [batchId],
+  );
+  const totalItems = parseInt(countResult.rows[0]?.total ?? '0', 10);
+
+  const dataResult = await pool.query<RejectionRow>(
+    `SELECT row_number, record_identifier, error_code, error_reason, raw_payload
+       FROM import_rejections
+      WHERE batch_id = $1
+        AND is_active = TRUE
+      ORDER BY row_number ASC
+      LIMIT $2 OFFSET $3`,
+    [batchId, limit, offset],
+  );
+
+  return {
+    rows: dataResult.rows,
+    pagination: {
+      page,
+      limit,
+      total_items: totalItems,
+      total_pages: Math.ceil(totalItems / limit) || 1,
+    },
+  };
+}
+
+export async function findBatchById(
+  batchId: string,
+): Promise<{ batch_id: string } | undefined> {
+  const result = await pool.query<{ batch_id: string }>(
+    `SELECT batch_id
+       FROM import_batches
+      WHERE batch_id = $1
+        AND is_active = TRUE
+      LIMIT 1`,
+    [batchId],
+  );
+  return result.rows[0];
 }

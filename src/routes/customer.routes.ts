@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { getCustomers, getCustomerById } from '../controllers/customer.controller';
-import { getPortfolio } from '../controllers/portfolio.controller';
+import { getPortfolio, getPositions } from '../controllers/portfolio.controller';
 import { getTransactions } from '../controllers/transaction.controller';
 import { getGoals, postGoal } from '../controllers/goal.controller';
 import { validate } from '../middleware/validate';
 import { customerListQuerySchema, customerIdParamSchema } from '../validators/customer.validator';
 import { transactionListQuerySchema } from '../validators/transaction.validator';
+import { positionListQuerySchema } from '../validators/portfolio.validator';
 import { createGoalSchema } from '../validators/goal.validator';
 
 const router = Router();
@@ -29,6 +30,14 @@ router.get(
   '/:id/portfolio',
   validate(customerIdParamSchema, 'params'),
   getPortfolio,
+);
+
+// GET /customers/:id/portfolio/positions
+router.get(
+  '/:id/portfolio/positions',
+  validate(customerIdParamSchema, 'params'),
+  validate(positionListQuerySchema, 'query'),
+  getPositions,
 );
 
 // GET /customers/:id/transactions

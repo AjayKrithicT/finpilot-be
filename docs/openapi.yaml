@@ -147,8 +147,10 @@ components:
           format: date
         kyc_status:
           type: string
+          enum: [VERIFIED, PENDING, REVIEW]
         segment:
           type: string
+          enum: [Mass, Affluent, HNI]
         risk_profile:
           nullable: true
           type: object
@@ -264,6 +266,48 @@ components:
                 type: number
               unrealised_gain_loss_pct:
                 type: number
+
+    PortfolioPosition:
+      type: object
+      properties:
+        instrument_id:
+          type: string
+        symbol:
+          type: string
+        instrument_name:
+          type: string
+        asset_class:
+          type: string
+        account_id:
+          type: string
+        quantity:
+          type: number
+        avg_cost:
+          type: number
+        last_price:
+          type: number
+        cost_basis:
+          type: number
+        market_value:
+          type: number
+        unrealised_gain_loss:
+          type: number
+        unrealised_gain_loss_pct:
+          type: number
+
+    ImportRejectionRow:
+      type: object
+      properties:
+        row_number:
+          type: integer
+        record_identifier:
+          type: string
+        error_code:
+          type: string
+        error_reason:
+          type: string
+        raw_payload:
+          type: object
 
     TransactionItem:
       type: object
@@ -503,7 +547,7 @@ paths:
 
   /customers/{id}/portfolio:
     get:
-      summary: Get customer portfolio
+      summary: Get customer portfolio (totals, accounts, allocation)
       tags: [Portfolio]
       parameters:
         - in: path
@@ -518,6 +562,57 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PortfolioResponse'
+        '404':
+          description: Customer not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /customers/{id}/portfolio/positions:
+    get:
+      summary: List customer holdings positions (paginated)
+      tags: [Portfolio]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Filter by symbol or instrument name (case-insensitive)
+        - in: query
+          name: asset_class
+          schema:
+            type: string
+            enum: [EQUITY, ETF, MUTUAL_FUND, BOND, REIT, GSEC]
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Paginated positions list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PortfolioPosition'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationMeta'
         '404':
           description: Customer not found
           content:
@@ -740,6 +835,53 @@ paths:
                 $ref: '#/components/schemas/ApiError'
         '409':
           description: Duplicate file
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /admin/imports/transactions/{batchId}/rejections:
+    get:
+      summary: List quarantined rejection rows for a batch (paginated)
+      tags: [Admin]
+      parameters:
+        - in: path
+          name: batchId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Paginated rejection rows
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ImportRejectionRow'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '403':
+          description: Forbidden — ADMIN role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Batch not found
           content:
             application/json:
               schema:

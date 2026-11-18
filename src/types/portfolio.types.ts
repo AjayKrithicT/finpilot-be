@@ -1,4 +1,5 @@
 import type { AssetClass, AccountType, AccountStatus } from '../constants/domain.constants';
+import type { PaginatedResponse } from './common.types';
 
 // ----- Database / view row -----
 export interface PortfolioPositionRow {
@@ -73,3 +74,14 @@ export interface PortfolioResponseDto {
   allocation_by_asset_class: AssetClassAllocationDto[];
   positions: PortfolioPositionDto[];
 }
+
+// ----- Paginated positions query params -----
+export interface PositionListParams {
+  page: number;
+  limit: number;
+  search?: string;
+  asset_class?: AssetClass;
+}
+
+// ----- Paginated positions response (GET /customers/:id/portfolio/positions) -----
+export type PaginatedPositionsDto = PaginatedResponse<PortfolioPositionDto>;
