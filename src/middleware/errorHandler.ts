@@ -7,7 +7,6 @@ import { HTTP_STATUS } from '../constants/http.constants';
 import { ERROR_CODES } from '../constants/error.constants';
 import type { ApiErrorResponse } from '../types/common.types';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function errorHandler(
   err: unknown,
   req: Request,

@@ -340,4 +340,4 @@ async function seedAll() {
   }
 }
 
-seedAll();
+void seedAll();

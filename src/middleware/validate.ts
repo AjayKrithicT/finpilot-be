@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
-import { type ZodTypeAny, ZodError } from 'zod';
+import { type ZodTypeAny } from 'zod';
 import { AppError } from '../utils/AppError';
 import { HTTP_STATUS } from '../constants/http.constants';
 import { ERROR_CODES } from '../constants/error.constants';
