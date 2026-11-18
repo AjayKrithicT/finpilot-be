@@ -97,6 +97,8 @@ export async function findTransactionsByCustomerId(
       t.transaction_id,
       t.account_id,
       t.instrument_id,
+      i.symbol,
+      i.instrument_name,
       t.transaction_type,
       t.trade_date,
       t.quantity,
@@ -109,6 +111,7 @@ export async function findTransactionsByCustomerId(
       t.modified_at
     FROM transactions t
     JOIN accounts a ON a.account_id = t.account_id
+    JOIN instruments i ON i.instrument_id = t.instrument_id
     WHERE ${whereClause}
     ORDER BY ${orderBy}
     LIMIT ${limitParam} OFFSET ${offsetParam}
@@ -132,6 +135,7 @@ export async function countTransactionsByCustomerId(
     SELECT COUNT(*) AS total
     FROM transactions t
     JOIN accounts a ON a.account_id = t.account_id
+    JOIN instruments i ON i.instrument_id = t.instrument_id
     WHERE ${whereClause}
   `;
 

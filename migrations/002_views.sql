@@ -71,3 +71,18 @@ WHERE r.is_active = TRUE
   AND b.is_active = TRUE;
 
 COMMIT;
+
+-- View 4: Monthly BUY/SELL net cash flow (last 24 months for flexibility)
+CREATE OR REPLACE VIEW v_monthly_net_flows AS
+SELECT
+  TO_CHAR(DATE_TRUNC('month', t.trade_date), 'YYYY-MM') AS month,
+  t.transaction_type,
+  COUNT(*)                                               AS transaction_count,
+  ROUND(SUM(t.amount), 2)                                AS total_amount
+FROM transactions t
+WHERE t.is_active   = TRUE
+  AND t.status      = 'SETTLED'
+  AND t.transaction_type IN ('BUY', 'SELL')
+  AND t.trade_date >= DATE_TRUNC('month', NOW()) - INTERVAL '23 months'
+GROUP BY DATE_TRUNC('month', t.trade_date), t.transaction_type
+ORDER BY month ASC, t.transaction_type ASC;

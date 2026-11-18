@@ -61,9 +61,11 @@ export async function getCustomerPortfolio(customerId: string): Promise<Portfoli
       account_id: a.account_id,
       account_type: a.account_type,
       provider: a.provider,
+      status: a.status,
       cost_basis: 0,
       market_value: 0,
       unrealised_gain_loss: 0,
+      unrealised_gain_loss_pct: 0,
     }));
 
     return {
@@ -75,6 +77,7 @@ export async function getCustomerPortfolio(customerId: string): Promise<Portfoli
         total_market_value: 0,
         total_unrealised_gain_loss: 0,
         total_unrealised_gain_loss_pct: 0,
+        active_accounts_count: accounts.length,
       },
       accounts: emptyAccounts,
       allocation_by_asset_class: [],
@@ -122,6 +125,7 @@ export async function getCustomerPortfolio(customerId: string): Promise<Portfoli
     total_market_value: totalMarketValue,
     total_unrealised_gain_loss: totalUnrealisedGL,
     total_unrealised_gain_loss_pct: totalUnrealisedGLPct,
+    active_accounts_count: accounts.length,
   };
 
   // -------------------------------------------------------------------------
@@ -135,9 +139,11 @@ export async function getCustomerPortfolio(customerId: string): Promise<Portfoli
       account_id: a.account_id,
       account_type: a.account_type,
       provider: a.provider,
+      status: a.status,
       cost_basis: 0,
       market_value: 0,
       unrealised_gain_loss: 0,
+      unrealised_gain_loss_pct: 0,
     });
   }
 
@@ -148,6 +154,12 @@ export async function getCustomerPortfolio(customerId: string): Promise<Portfoli
       acc.market_value = round2(acc.market_value + p.market_value);
       acc.unrealised_gain_loss = round2(acc.unrealised_gain_loss + p.unrealised_gain_loss);
     }
+  }
+
+  // Compute per-account unrealised_gain_loss_pct after all positions are rolled up
+  for (const acc of accountMap.values()) {
+    acc.unrealised_gain_loss_pct =
+      acc.cost_basis > 0 ? round2((acc.unrealised_gain_loss / acc.cost_basis) * 100) : 0;
   }
 
   const accountAllocations = Array.from(accountMap.values());

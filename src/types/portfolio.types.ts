@@ -33,15 +33,18 @@ export interface PortfolioTotalsDto {
   total_market_value: number;
   total_unrealised_gain_loss: number;
   total_unrealised_gain_loss_pct: number;
+  active_accounts_count: number;
 }
 
 export interface AccountAllocationDto {
   account_id: string;
   account_type: AccountType;
   provider: string;
+  status: AccountStatus;
   cost_basis: number;
   market_value: number;
   unrealised_gain_loss: number;
+  unrealised_gain_loss_pct: number;
 }
 
 export interface AssetClassAllocationDto {

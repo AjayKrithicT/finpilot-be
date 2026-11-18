@@ -11,6 +11,8 @@ export interface TransactionRow {
   transaction_id: string;
   account_id: string;
   instrument_id: string;
+  symbol: string;
+  instrument_name: string;
   transaction_type: TransactionType;
   trade_date: Date;
   quantity: string;   // NUMERIC from pg
@@ -42,6 +44,8 @@ export interface TransactionItemDto {
   transaction_id: string;
   account_id: string;
   instrument_id: string;
+  symbol: string;
+  instrument_name: string;
   transaction_type: TransactionType;
   trade_date: string;
   quantity: number;

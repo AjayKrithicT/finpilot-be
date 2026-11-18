@@ -35,6 +35,8 @@ export async function listCustomerTransactions(
     transaction_id: r.transaction_id,
     account_id: r.account_id,
     instrument_id: r.instrument_id,
+    symbol: r.symbol,
+    instrument_name: r.instrument_name,
     transaction_type: r.transaction_type,
     trade_date:
       r.trade_date instanceof Date
