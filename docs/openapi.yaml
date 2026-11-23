@@ -1,0 +1,957 @@
+openapi: 3.0.3
+info:
+  title: FinPilot Backend API
+  description: Internal wealth-service and operations REST API
+  version: 1.0.0
+
+servers:
+  - url: /api/v1
+    description: Versioned API root
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ApiError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, request_id]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            request_id:
+              type: string
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  issue:
+                    type: string
+
+    PaginationMeta:
+      type: object
+      required: [page, limit, total_items, total_pages]
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total_items:
+          type: integer
+        total_pages:
+          type: integer
+
+    HealthResponse:
+      type: object
+      required: [status, db, timestamp, uptime_seconds]
+      properties:
+        status:
+          type: string
+          example: ok
+        db:
+          type: string
+          example: connected
+        timestamp:
+          type: string
+          format: date-time
+        uptime_seconds:
+          type: integer
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    LoginResponse:
+      type: object
+      required: [token, user]
+      properties:
+        token:
+          type: string
+        user:
+          type: object
+          required: [user_id, email, full_name, role]
+          properties:
+            user_id:
+              type: string
+            email:
+              type: string
+            full_name:
+              type: string
+            role:
+              type: string
+              enum: [VIEWER, ADMIN]
+
+    CustomerSummary:
+      type: object
+      properties:
+        customer_id:
+          type: string
+        full_name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        kyc_status:
+          type: string
+          enum: [VERIFIED, PENDING, REVIEW]
+        segment:
+          type: string
+          enum: [Mass, Affluent, HNI]
+        total_market_value:
+          type: number
+          format: double
+
+    CustomerDetail:
+      type: object
+      properties:
+        customer_id:
+          type: string
+        full_name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        date_of_birth:
+          type: string
+          format: date
+        onboarded_at:
+          type: string
+          format: date
+        kyc_status:
+          type: string
+          enum: [VERIFIED, PENDING, REVIEW]
+        segment:
+          type: string
+          enum: [Mass, Affluent, HNI]
+        risk_profile:
+          nullable: true
+          type: object
+          properties:
+            risk_score:
+              type: integer
+            risk_level:
+              type: string
+            assessed_at:
+              type: string
+              format: date
+            horizon_years:
+              type: integer
+            liquidity_need:
+              type: string
+        accounts:
+          type: array
+          items:
+            type: object
+            properties:
+              account_id:
+                type: string
+              account_type:
+                type: string
+              provider:
+                type: string
+              opened_at:
+                type: string
+                format: date
+              status:
+                type: string
+              base_currency:
+                type: string
+
+    PortfolioResponse:
+      type: object
+      example:
+        customer_id: C0002
+        snapshot_date: "2026-09-18"
+        price_as_of: "2026-09-18"
+        totals:
+          total_cost_basis: 241500.00
+          total_market_value: 263088.49
+          total_unrealised_gain_loss: 21588.49
+          total_unrealised_gain_loss_pct: 8.94
+          active_accounts_count: 2
+        accounts:
+          - account_id: A00003
+            account_type: BROKERAGE
+            provider: Zerodha
+            status: ACTIVE
+            cost_basis: 241500.00
+            market_value: 263088.49
+            unrealised_gain_loss: 21588.49
+            unrealised_gain_loss_pct: 8.94
+        allocation_by_asset_class:
+          - asset_class: EQUITY
+            market_value: 263088.49
+            allocation_pct: 100.00
+        positions:
+          - instrument_id: I0001
+            symbol: RELIANCE
+            instrument_name: Reliance Industries Ltd
+            asset_class: EQUITY
+            account_id: A00003
+            quantity: 50
+            avg_cost: 2415.00
+            last_price: 2630.88
+            cost_basis: 120750.00
+            market_value: 131544.00
+            unrealised_gain_loss: 10794.00
+            unrealised_gain_loss_pct: 8.94
+      properties:
+        customer_id:
+          type: string
+        snapshot_date:
+          type: string
+          nullable: true
+          format: date
+        price_as_of:
+          type: string
+          nullable: true
+          format: date
+        totals:
+          type: object
+          properties:
+            total_cost_basis:
+              type: number
+            total_market_value:
+              type: number
+            total_unrealised_gain_loss:
+              type: number
+            total_unrealised_gain_loss_pct:
+              type: number
+            active_accounts_count:
+              type: integer
+        accounts:
+          type: array
+          items:
+            type: object
+            properties:
+              account_id:
+                type: string
+              account_type:
+                type: string
+              provider:
+                type: string
+              status:
+                type: string
+                enum: [ACTIVE, INACTIVE, SUSPENDED]
+              cost_basis:
+                type: number
+              market_value:
+                type: number
+              unrealised_gain_loss:
+                type: number
+              unrealised_gain_loss_pct:
+                type: number
+        allocation_by_asset_class:
+          type: array
+          items:
+            type: object
+            properties:
+              asset_class:
+                type: string
+              market_value:
+                type: number
+              allocation_pct:
+                type: number
+        positions:
+          type: array
+          items:
+            type: object
+            properties:
+              instrument_id:
+                type: string
+              symbol:
+                type: string
+              instrument_name:
+                type: string
+              asset_class:
+                type: string
+              account_id:
+                type: string
+              quantity:
+                type: number
+              avg_cost:
+                type: number
+              last_price:
+                type: number
+              cost_basis:
+                type: number
+              market_value:
+                type: number
+              unrealised_gain_loss:
+                type: number
+              unrealised_gain_loss_pct:
+                type: number
+
+    PortfolioPosition:
+      type: object
+      properties:
+        instrument_id:
+          type: string
+        symbol:
+          type: string
+        instrument_name:
+          type: string
+        asset_class:
+          type: string
+        account_id:
+          type: string
+        quantity:
+          type: number
+        avg_cost:
+          type: number
+        last_price:
+          type: number
+        cost_basis:
+          type: number
+        market_value:
+          type: number
+        unrealised_gain_loss:
+          type: number
+        unrealised_gain_loss_pct:
+          type: number
+
+    ImportRejectionRow:
+      type: object
+      properties:
+        row_number:
+          type: integer
+        record_identifier:
+          type: string
+        error_code:
+          type: string
+        error_reason:
+          type: string
+        raw_payload:
+          type: object
+
+    TransactionItem:
+      type: object
+      properties:
+        transaction_id:
+          type: string
+        account_id:
+          type: string
+        instrument_id:
+          type: string
+        symbol:
+          type: string
+        instrument_name:
+          type: string
+        transaction_type:
+          type: string
+          enum: [BUY, SELL, DIVIDEND, FEE]
+        trade_date:
+          type: string
+          format: date
+        quantity:
+          type: number
+        price:
+          type: number
+        amount:
+          type: number
+        status:
+          type: string
+          enum: [SETTLED, PENDING, REVERSED]
+
+    GoalItem:
+      type: object
+      properties:
+        goal_id:
+          type: string
+        customer_id:
+          type: string
+        goal_type:
+          type: string
+        goal_name:
+          type: string
+        target_amount:
+          type: number
+        current_funded_amount:
+          type: number
+        target_date:
+          type: string
+          format: date
+        priority:
+          type: string
+        funded_percentage:
+          type: number
+        is_overdue:
+          type: boolean
+        is_overfunded:
+          type: boolean
+
+    CreateGoalRequest:
+      type: object
+      required: [goal_type, goal_name, target_amount, current_funded_amount, target_date, priority]
+      properties:
+        goal_type:
+          type: string
+          enum: [WEALTH_CREATION, EMERGENCY_FUND, EDUCATION, HOME_PURCHASE, RETIREMENT, TRAVEL]
+        goal_name:
+          type: string
+        target_amount:
+          type: number
+        current_funded_amount:
+          type: number
+        target_date:
+          type: string
+          format: date
+        priority:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+
+    InstrumentOption:
+      type: object
+      properties:
+        instrument_id:
+          type: string
+        symbol:
+          type: string
+        instrument_name:
+          type: string
+        asset_class:
+          type: string
+
+    ImportBatchResponse:
+      type: object
+      example:
+        batch_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+        file_name: "transactions_2026_09.csv"
+        total_rows: 10
+        imported_rows: 8
+        rejected_rows: 2
+        status: COMPLETED
+        rejections:
+          - row_number: 4
+            record_identifier: T0004551
+            error_code: INVALID_INSTRUMENT_FK
+            error_reason: "instrument_id 'I9999' does not exist"
+            raw_payload:
+              transaction_id: T0004551
+              instrument_id: I9999
+          - row_number: 7
+            record_identifier: T0004552
+            error_code: NON_POSITIVE_AMOUNT
+            error_reason: "amount must be greater than 0, got -75"
+            raw_payload:
+              transaction_id: T0004552
+              amount: "-75"
+      properties:
+        batch_id:
+          type: string
+        file_name:
+          type: string
+        total_rows:
+          type: integer
+        imported_rows:
+          type: integer
+        rejected_rows:
+          type: integer
+        status:
+          type: string
+          enum: [COMPLETED, FAILED]
+        rejections:
+          type: array
+          items:
+            type: object
+            properties:
+              row_number:
+                type: integer
+              record_identifier:
+                type: string
+              error_code:
+                type: string
+              error_reason:
+                type: string
+              raw_payload:
+                type: object
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      summary: Service health check
+      security: []
+      tags: [System]
+      responses:
+        '200':
+          description: Service healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Database unreachable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /auth/login:
+    post:
+      summary: Authenticate user and get JWT
+      security: []
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /customers:
+    get:
+      summary: Search and list customers
+      tags: [Customers]
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+        - in: query
+          name: city
+          schema:
+            type: string
+        - in: query
+          name: kyc_status
+          schema:
+            type: string
+            enum: [VERIFIED, PENDING, REVIEW]
+        - in: query
+          name: segment
+          schema:
+            type: string
+            enum: [Mass, Affluent, HNI]
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Paginated customer list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CustomerSummary'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationMeta'
+
+  /customers/{id}:
+    get:
+      summary: Get customer detail
+      tags: [Customers]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Customer detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerDetail'
+        '404':
+          description: Customer not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /customers/{id}/portfolio:
+    get:
+      summary: Get customer portfolio (totals, accounts, allocation)
+      tags: [Portfolio]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Portfolio data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortfolioResponse'
+        '404':
+          description: Customer not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /customers/{id}/portfolio/positions:
+    get:
+      summary: List customer holdings positions (paginated)
+      tags: [Portfolio]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Filter by symbol or instrument name (case-insensitive)
+        - in: query
+          name: asset_class
+          schema:
+            type: string
+            enum: [EQUITY, ETF, MUTUAL_FUND, BOND, REIT, GSEC]
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Paginated positions list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PortfolioPosition'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '404':
+          description: Customer not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /customers/{id}/transactions:
+    get:
+      summary: List customer transactions
+      tags: [Transactions]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: account_id
+          schema:
+            type: string
+        - in: query
+          name: instrument_id
+          schema:
+            type: string
+        - in: query
+          name: transaction_type
+          schema:
+            type: string
+            enum: [BUY, SELL, DIVIDEND, FEE]
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [SETTLED, PENDING, REVERSED]
+        - in: query
+          name: from_date
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: to_date
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: sort_by
+          schema:
+            type: string
+            enum: [trade_date, amount, transaction_type, status]
+        - in: query
+          name: sort_dir
+          schema:
+            type: string
+            enum: [asc, desc]
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Paginated transaction list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TransactionItem'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationMeta'
+
+  /customers/{id}/goals:
+    get:
+      summary: List customer goals
+      tags: [Goals]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Goal list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GoalItem'
+    post:
+      summary: Create a goal for a customer
+      tags: [Goals]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGoalRequest'
+      responses:
+        '201':
+          description: Goal created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoalItem'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /goals/{goalId}:
+    patch:
+      summary: Update a goal
+      tags: [Goals]
+      parameters:
+        - in: path
+          name: goalId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                goal_type:
+                  type: string
+                goal_name:
+                  type: string
+                target_amount:
+                  type: number
+                current_funded_amount:
+                  type: number
+                target_date:
+                  type: string
+                  format: date
+                priority:
+                  type: string
+      responses:
+        '200':
+          description: Goal updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoalItem'
+        '404':
+          description: Goal not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /instruments:
+    get:
+      summary: List active instruments
+      tags: [Instruments]
+      responses:
+        '200':
+          description: Instrument list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InstrumentOption'
+
+  /admin/imports/transactions:
+    post:
+      summary: Import transactions from CSV
+      tags: [Admin]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportBatchResponse'
+        '400':
+          description: Invalid CSV
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Forbidden — ADMIN role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Duplicate file
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /admin/imports/transactions/{batchId}/rejections:
+    get:
+      summary: List quarantined rejection rows for a batch (paginated)
+      tags: [Admin]
+      parameters:
+        - in: path
+          name: batchId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Paginated rejection rows
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ImportRejectionRow'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '403':
+          description: Forbidden — ADMIN role required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Batch not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'

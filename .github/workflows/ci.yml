@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main", "develop"]
+
+jobs:
+  ci:
+    name: Lint · Test · Build
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: finpilot_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: test
+      PORT: 8000
+      CORS_ORIGIN: http://localhost:3000
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_NAME: finpilot_test
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      JWT_SECRET: ci_test_secret_at_least_32_characters_long
+      JWT_EXPIRES_IN: 8h
+      SEED_ADMIN_EMAIL: admin@finpilot.local
+      SEED_ADMIN_PASSWORD: Admin@CI123
+      SEED_VIEWER_EMAIL: viewer@finpilot.local
+      SEED_VIEWER_PASSWORD: Viewer@CI123
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Migrate database
+        run: npm run db:migrate
+
+      - name: Seed database
+        run: npm run db:seed
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
